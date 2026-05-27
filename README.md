@@ -121,7 +121,11 @@ Default: `false`
 
 ### <a name="input_failover_vnet_config"></a> [failover\_vnet\_config](#input\_failover\_vnet\_config)
 
-Description: Configuration for the failover virtual network. Required when create\_network\_infrastructure is true. CIDR ranges default to non-overlapping values (10.1.0.0/16, 10.1.0.0/24, 10.1.1.0/24).
+Description: Configuration for the failover virtual network, used when create\_network\_infrastructure is true.
+- `location`: The Azure region for the failover VNet (e.g. "northeurope"). Required when create\_network\_infrastructure is true.
+- `address_space`: The CIDR block for the failover VNet (default: "10.1.0.0/16").
+- `pp_subnet_cidr`: CIDR for the Power Platform delegated subnet (default: "10.1.0.0/24").
+- `pe_subnet_cidr`: CIDR for the private endpoint subnet (default: "10.1.1.0/24").
 
 Type:
 
@@ -138,7 +142,14 @@ Default: `null`
 
 ### <a name="input_network_config"></a> [network\_config](#input\_network\_config)
 
-Description: Existing network configuration to use when create\_network\_infrastructure is false. Provides VNet IDs, subnet IDs, and subnet names for primary and failover networks.
+Description: Existing network configuration, used when create\_network\_infrastructure is false.  
+Provides VNet IDs, subnet IDs, and subnet names for primary and failover networks.
+- `primary.vnet_id`: Resource ID of the existing primary VNet.
+- `primary.subnet_id`: Resource ID of the existing primary PP-delegated subnet.
+- `primary.subnet_name`: Name of the existing primary PP-delegated subnet.
+- `failover.vnet_id`: Resource ID of the existing failover VNet.
+- `failover.subnet_id`: Resource ID of the existing failover PP-delegated subnet.
+- `failover.subnet_name`: Name of the existing failover PP-delegated subnet.
 
 Type:
 
@@ -161,7 +172,22 @@ Default: `null`
 
 ### <a name="input_nsg_additional_rules"></a> [nsg\_additional\_rules](#input\_nsg\_additional\_rules)
 
-Description: Additional security rules to add to the NSGs on top of the secure defaults (inter-VNet traffic only). Priorities must be in range 100–4089 to avoid conflicts with built-in rules. Note: Power Platform VNet injection may require outbound rules for Microsoft service endpoints — add them here if needed.
+Description: Additional security rules to add to the NSGs on top of the secure defaults (inter-VNet traffic only).  
+Priorities must be in range 100-4089 to avoid conflicts with built-in rules (priorities 4090-4096).  
+Each rule object supports:
+- `name`: Rule name.
+- `priority`: Rule priority (100-4089).
+- `direction`: "Inbound" or "Outbound".
+- `access`: "Allow" or "Deny".
+- `protocol`: "*", "Tcp", "Udp", or "Icmp".
+- `source_port_range`: Source port range (default: "*").
+- `destination_port_range`: Destination port range (default: "*").
+- `source_address_prefix`: Source address prefix (default: "*").
+- `destination_address_prefix`: Destination address prefix (default: "*").
+- `description`: Rule description (default: "").
+
+Note: Power Platform VNet injection may require outbound rules for Microsoft service endpoints.  
+Add them here if your environment requires it.
 
 Type:
 
@@ -184,7 +210,11 @@ Default: `[]`
 
 ### <a name="input_primary_vnet_config"></a> [primary\_vnet\_config](#input\_primary\_vnet\_config)
 
-Description: Configuration for the primary virtual network. Required when create\_network\_infrastructure is true. CIDR ranges default to non-overlapping values (10.0.0.0/16, 10.0.0.0/24, 10.0.1.0/24).
+Description: Configuration for the primary virtual network, used when create\_network\_infrastructure is true.
+- `location`: The Azure region for the primary VNet (e.g. "westeurope"). Required when create\_network\_infrastructure is true.
+- `address_space`: The CIDR block for the primary VNet (default: "10.0.0.0/16").
+- `pp_subnet_cidr`: CIDR for the Power Platform delegated subnet (default: "10.0.0.0/24").
+- `pe_subnet_cidr`: CIDR for the private endpoint subnet (default: "10.0.1.0/24").
 
 Type:
 
@@ -222,6 +252,10 @@ The following outputs are exported:
 ### <a name="output_enterprise_policy_id"></a> [enterprise\_policy\_id](#output\_enterprise\_policy\_id)
 
 Description: The Azure ARM resource ID of the enterprise policy.
+
+### <a name="output_enterprise_policy_links"></a> [enterprise\_policy\_links](#output\_enterprise\_policy\_links)
+
+Description: Map of environment key to enterprise policy link details, keyed by the environments map key.
 
 ### <a name="output_enterprise_policy_system_id"></a> [enterprise\_policy\_system\_id](#output\_enterprise\_policy\_system\_id)
 
@@ -263,6 +297,17 @@ No modules.
      with absolute GitHub URLs, e.g.:
        See [CONTRIBUTING.md](https://github.com/<OWNER>/<REPO>/blob/main/CONTRIBUTING.md)
      Relative paths work on GitHub but 404 on the Terraform Registry. -->
+
+## AVM Alignment
+
+This module is aligned with [Azure Verified Modules (AVM)](https://azure.github.io/Azure-Verified-Modules/) conventions. The following known deviations apply:
+
+| ID | Category | Description |
+|----|----------|-------------|
+| D1 | Provider scope | This module requires three providers (`microsoft/power-platform`, `hashicorp/azurerm`, `azure/azapi`). AVM pattern modules typically use a single provider. The multi-provider design is necessary because Power Platform VNet injection requires both ARM resources (via azapi/azurerm) and Power Platform API resources (via power-platform). |
+| D2 | Registry namespace | Published under `rpothin/ptn-enterprisepolicy-networkinjection/powerplatform` (Power Platform namespace) rather than the AVM-preferred `Azure/` organization on the Terraform Registry, because the Power Platform provider is maintained separately from the Azure provider ecosystem. |
+| D3 | Test tooling | Uses `terraform test` (native Terraform testing framework) rather than the AVM-recommended Go/Terratest framework, as the Power Platform provider does not have a Go SDK suitable for integration with Terratest at this time. |
+| D7 | Telemetry beacon | This module does not include an `azapi_resource` telemetry beacon (as recommended by AVM TFNFR15). The Power Platform provider does not support the ARM deployment telemetry pattern, and adding a standalone ARM deployment solely for telemetry would introduce unnecessary Azure subscription side effects for callers who only need Power Platform resources. |
 
 ## Contributing
 

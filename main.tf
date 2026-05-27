@@ -207,20 +207,33 @@ resource "azurerm_private_dns_zone_virtual_network_link" "failover" {
 # ==============================================================================
 
 resource "azapi_resource" "enterprise_policy" {
+  # Required arguments (alphabetical)
+  body      = local.enterprise_policy_body
   location  = var.resource_group_location
   name      = var.enterprise_policy_name
   parent_id = azurerm_resource_group.this.id
   type      = "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"
 
-  body = local.enterprise_policy_body
-
+  # Optional arguments and blocks (alphabetical)
   identity {
     type = "SystemAssigned"
   }
 
   response_export_values = ["properties.systemId", "properties.healthStatus"]
+  tags                   = var.tags
 
-  tags = var.tags
+  timeouts {
+    create = "30m"
+    delete = "20m"
+    read   = "5m"
+    update = "30m"
+  }
+
+  # Meta-arguments (depends_on before lifecycle per TFNFR8)
+  depends_on = [
+    azurerm_subnet_network_security_group_association.primary_pp,
+    azurerm_subnet_network_security_group_association.failover_pp,
+  ]
 
   lifecycle {
     ignore_changes = [
@@ -230,18 +243,6 @@ resource "azapi_resource" "enterprise_policy" {
       body.properties.lastModifiedTime,
     ]
   }
-
-  timeouts {
-    create = "30m"
-    delete = "20m"
-    read   = "5m"
-    update = "30m"
-  }
-
-  depends_on = [
-    azurerm_subnet_network_security_group_association.primary_pp,
-    azurerm_subnet_network_security_group_association.failover_pp,
-  ]
 }
 
 # ==============================================================================

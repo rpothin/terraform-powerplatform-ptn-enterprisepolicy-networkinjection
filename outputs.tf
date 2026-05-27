@@ -1,3 +1,13 @@
+output "enterprise_policy_links" {
+  description = "Map of environment key to enterprise policy link details, keyed by the environments map key."
+  value = {
+    for k, v in powerplatform_enterprise_policy.this : k => {
+      environment_id = v.environment_id
+      policy_type    = v.policy_type
+    }
+  }
+}
+
 output "enterprise_policy_id" {
   description = "The Azure ARM resource ID of the enterprise policy."
   value       = azapi_resource.enterprise_policy.id

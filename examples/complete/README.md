@@ -11,6 +11,10 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.9, < 2.0)
 
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.0)
+
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
+
 - <a name="requirement_powerplatform"></a> [powerplatform](#requirement\_powerplatform) (~> 4.0)
 
 ## Resources
@@ -26,25 +30,97 @@ No required inputs.
 
 The following input variables are optional (have default values):
 
-### <a name="input_location"></a> [location](#input\_location)
+### <a name="input_enterprise_policy_location"></a> [enterprise\_policy\_location](#input\_enterprise\_policy\_location)
 
-Description: The geographic location for the resource.
-
-Type: `string`
-
-Default: `"unitedstates"`
-
-### <a name="input_name"></a> [name](#input\_name)
-
-Description: The name of the resource.
+Description: The Power Platform region for the enterprise policy (e.g. 'europe').
 
 Type: `string`
 
-Default: `"example-complete"`
+Default: `"europe"`
+
+### <a name="input_enterprise_policy_name"></a> [enterprise\_policy\_name](#input\_enterprise\_policy\_name)
+
+Description: The name of the enterprise policy ARM resource.
+
+Type: `string`
+
+Default: `"my-network-injection-policy-complete"`
+
+### <a name="input_environments"></a> [environments](#input\_environments)
+
+Description: Map of Power Platform environments to link to the enterprise policy.
+
+Type:
+
+```hcl
+map(object({
+    id = string
+  }))
+```
+
+Default:
+
+```json
+{
+  "env1": {
+    "id": "00000000-0000-0000-0000-000000000001"
+  },
+  "env2": {
+    "id": "00000000-0000-0000-0000-000000000002"
+  }
+}
+```
+
+### <a name="input_failover_vnet_location"></a> [failover\_vnet\_location](#input\_failover\_vnet\_location)
+
+Description: Azure region for the failover virtual network.
+
+Type: `string`
+
+Default: `"northeurope"`
+
+### <a name="input_primary_vnet_location"></a> [primary\_vnet\_location](#input\_primary\_vnet\_location)
+
+Description: Azure region for the primary virtual network.
+
+Type: `string`
+
+Default: `"westeurope"`
+
+### <a name="input_private_dns_zone_names"></a> [private\_dns\_zone\_names](#input\_private\_dns\_zone\_names)
+
+Description: List of private DNS zone names to create.
+
+Type: `list(string)`
+
+Default:
+
+```json
+[
+  "privatelink.blob.core.windows.net",
+  "privatelink.vaultcore.azure.net"
+]
+```
+
+### <a name="input_resource_group_location"></a> [resource\_group\_location](#input\_resource\_group\_location)
+
+Description: The Azure region for the resource group and ARM enterprise policy resource.
+
+Type: `string`
+
+Default: `"westeurope"`
+
+### <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name)
+
+Description: The name of the Azure resource group to create.
+
+Type: `string`
+
+Default: `"rg-pp-network-injection-complete"`
 
 ### <a name="input_tags"></a> [tags](#input\_tags)
 
-Description: A map of tags to apply to the resource.
+Description: Tags to apply to all resources.
 
 Type: `map(string)`
 
@@ -62,13 +138,37 @@ Default:
 
 The following outputs are exported:
 
-### <a name="output_name"></a> [name](#output\_name)
+### <a name="output_enterprise_policy_id"></a> [enterprise\_policy\_id](#output\_enterprise\_policy\_id)
 
-Description: The name of the managed resource.
+Description: The Azure ARM resource ID of the enterprise policy.
 
-### <a name="output_resource_id"></a> [resource\_id](#output\_resource\_id)
+### <a name="output_enterprise_policy_system_id"></a> [enterprise\_policy\_system\_id](#output\_enterprise\_policy\_system\_id)
 
-Description: The ID of the managed resource.
+Description: The Power Platform system ID of the enterprise policy.
+
+### <a name="output_failover_subnet_id"></a> [failover\_subnet\_id](#output\_failover\_subnet\_id)
+
+Description: The Azure resource ID of the failover PP-delegated subnet.
+
+### <a name="output_failover_vnet_id"></a> [failover\_vnet\_id](#output\_failover\_vnet\_id)
+
+Description: The Azure resource ID of the failover virtual network.
+
+### <a name="output_primary_subnet_id"></a> [primary\_subnet\_id](#output\_primary\_subnet\_id)
+
+Description: The Azure resource ID of the primary PP-delegated subnet.
+
+### <a name="output_primary_vnet_id"></a> [primary\_vnet\_id](#output\_primary\_vnet\_id)
+
+Description: The Azure resource ID of the primary virtual network.
+
+### <a name="output_resource_group_id"></a> [resource\_group\_id](#output\_resource\_group\_id)
+
+Description: The Azure resource ID of the resource group.
+
+### <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name)
+
+Description: The name of the Azure resource group.
 
 ## Modules
 

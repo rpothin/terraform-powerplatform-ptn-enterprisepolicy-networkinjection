@@ -1,7 +1,7 @@
 data "powerplatform_environments" "all" {}
 
 # ==============================================================================
-# RESOURCE GROUP
+# RESOURCE GROUP - Test
 # ==============================================================================
 
 resource "azurerm_resource_group" "this" {

@@ -315,4 +315,100 @@ run "create_private_dns_zones_defaults_to_false" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# Cross-variable validation: create_network_infrastructure vs vnet configs
+# ---------------------------------------------------------------------------
+
+run "rejects_create_infrastructure_without_vnet_configs" {
+  command = plan
+
+  variables {
+    enterprise_policy_name        = "test-policy"
+    enterprise_policy_location    = "europe"
+    resource_group_name           = "rg-test"
+    resource_group_location       = "westeurope"
+    create_network_infrastructure = true
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    # primary_vnet_config and failover_vnet_config left null (defaults)
+  }
+
+  expect_failures = [
+    azurerm_resource_group.this,
+  ]
+}
+
+run "rejects_byo_network_without_network_config" {
+  command = plan
+
+  variables {
+    enterprise_policy_name        = "test-policy"
+    enterprise_policy_location    = "europe"
+    resource_group_name           = "rg-test"
+    resource_group_location       = "westeurope"
+    create_network_infrastructure = false
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    # network_config left null (default)
+  }
+
+  expect_failures = [
+    azurerm_resource_group.this,
+  ]
+}
+
+run "rejects_same_primary_and_failover_vnet_location" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "westeurope" } # same as primary — invalid
+  }
+
+  expect_failures = [
+    azurerm_resource_group.this,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Variable validation: NSG protocol
+# ---------------------------------------------------------------------------
+
+run "rejects_nsg_rule_with_invalid_protocol" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_additional_rules = [
+      {
+        name      = "bad-rule"
+        priority  = 200
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "INVALID" # not a valid Azure NSG protocol
+      }
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_additional_rules,
+  ]
+}
 

@@ -8,6 +8,23 @@ resource "azurerm_resource_group" "this" {
   location = var.resource_group_location
   name     = var.resource_group_name
   tags     = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = !var.create_network_infrastructure || (var.primary_vnet_config != null && var.failover_vnet_config != null)
+      error_message = "primary_vnet_config and failover_vnet_config must be provided when create_network_infrastructure is true."
+    }
+
+    precondition {
+      condition     = var.create_network_infrastructure || var.network_config != null
+      error_message = "network_config must be provided when create_network_infrastructure is false."
+    }
+
+    precondition {
+      condition     = !var.create_network_infrastructure || var.primary_vnet_config == null || var.failover_vnet_config == null || var.primary_vnet_config.location != var.failover_vnet_config.location
+      error_message = "primary_vnet_config.location and failover_vnet_config.location must be in different Azure regions for true failover resiliency."
+    }
+  }
 }
 
 # ==============================================================================
@@ -214,13 +231,14 @@ resource "azapi_resource" "enterprise_policy" {
   parent_id = azurerm_resource_group.this.id
   type      = "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"
 
-  # Optional arguments and blocks (alphabetical)
+  # Optional arguments (alphabetical, before optional nested blocks per TFNFR8)
+  response_export_values = ["properties.systemId", "properties.healthStatus"]
+  tags                   = var.tags
+
+  # Optional nested blocks (alphabetical)
   identity {
     type = "SystemAssigned"
   }
-
-  response_export_values = ["properties.systemId", "properties.healthStatus"]
-  tags                   = var.tags
 
   timeouts {
     create = "30m"

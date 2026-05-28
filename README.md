@@ -19,7 +19,19 @@ This Power Platform Terraform pattern module creates all Azure networking infras
 
 - Power Platform environments must be of **Managed** type before being linked
 - Azure subscription with permissions to create networking and `Microsoft.PowerPlatform` resources
+- `Microsoft.PowerPlatform` resource provider registered in the target Azure subscription:
+  ```bash
+  az provider register --namespace Microsoft.PowerPlatform
+  ```
 - OIDC-based authentication configured for all three providers (`azapi`, `azurerm`, `powerplatform`)
+
+## Important: NSG outbound requirements
+
+When `create_network_infrastructure = true`, this module creates NSGs with a `DenyAllOutBound` rule at priority 4096. **This will block Power Platform VNet injection from functioning** because the PP service requires outbound HTTPS connectivity to Microsoft service endpoints.
+
+You must provide the required outbound allow rules via `nsg_additional_rules` before applying the module. See the [complete example](examples/complete/) for a starting point and the [Power Platform VNet injection documentation](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview) for the current list of required endpoints.
+
+> **Note on hub-and-spoke:** If your VNets are peered to a hub containing an NVA or Azure Firewall, be aware that VNet peering does not set `allow_forwarded_traffic` by default. Forwarded traffic from a hub will be dropped unless `allow_forwarded_traffic = true` is configured on the peering. This module creates direct primary-to-failover peering only; for hub-and-spoke architectures you will need to configure additional peerings manually.
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
@@ -89,7 +101,7 @@ map(object({
 
 ### <a name="input_resource_group_location"></a> [resource\_group\_location](#input\_resource\_group\_location)
 
-Description: The Azure region for the resource group and ARM enterprise policy resource (e.g. 'westeurope', 'eastus').
+Description: The Azure region for the resource group and all Azure networking resources created by this module (e.g. 'westeurope', 'eastus').
 
 Type: `string`
 
@@ -179,15 +191,17 @@ Each rule object supports:
 - `priority`: Rule priority (100-4089).
 - `direction`: "Inbound" or "Outbound".
 - `access`: "Allow" or "Deny".
-- `protocol`: "*", "Tcp", "Udp", or "Icmp".
+- `protocol`: "*", "Ah", "Esp", "Icmp", "Tcp", or "Udp".
 - `source_port_range`: Source port range (default: "*").
 - `destination_port_range`: Destination port range (default: "*").
 - `source_address_prefix`: Source address prefix (default: "*").
 - `destination_address_prefix`: Destination address prefix (default: "*").
 - `description`: Rule description (default: "").
 
-Note: Power Platform VNet injection may require outbound rules for Microsoft service endpoints.  
-Add them here if your environment requires it.
+Note: Power Platform VNet injection REQUIRES outbound HTTPS connectivity to Microsoft service  
+endpoints. The default DenyAllOutBound rule will prevent PP VNet injection from functioning  
+unless you add the required outbound allow rules via this variable. See the complete example  
+for a starting point and https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview.
 
 Type:
 
@@ -307,7 +321,7 @@ This module is aligned with [Azure Verified Modules (AVM)](https://azure.github.
 | D1 | Provider scope | This module requires three providers (`microsoft/power-platform`, `hashicorp/azurerm`, `azure/azapi`). AVM pattern modules typically use a single provider. The multi-provider design is necessary because Power Platform VNet injection requires both ARM resources (via azapi/azurerm) and Power Platform API resources (via power-platform). |
 | D2 | Registry namespace | Published under `rpothin/ptn-enterprisepolicy-networkinjection/powerplatform` (Power Platform namespace) rather than the AVM-preferred `Azure/` organization on the Terraform Registry, because the Power Platform provider is maintained separately from the Azure provider ecosystem. |
 | D3 | Test tooling | Uses `terraform test` (native Terraform testing framework) rather than the AVM-recommended Go/Terratest framework, as the Power Platform provider does not have a Go SDK suitable for integration with Terratest at this time. |
-| D7 | Telemetry beacon | This module does not include an `azapi_resource` telemetry beacon (as recommended by AVM TFNFR15). The Power Platform provider does not support the ARM deployment telemetry pattern, and adding a standalone ARM deployment solely for telemetry would introduce unnecessary Azure subscription side effects for callers who only need Power Platform resources. |
+| D7 | Telemetry beacon | This module does not include an `azapi_resource` telemetry beacon (as required by AVM TELEM1). The Power Platform provider does not support the ARM deployment telemetry pattern, and adding a standalone ARM deployment solely for telemetry would introduce unnecessary Azure subscription side effects for callers who only need Power Platform resources. |
 
 ## Contributing
 

@@ -45,10 +45,14 @@ locals {
   # Resolved VNet ID — failover
   failover_vnet_id = var.create_network_infrastructure ? azurerm_virtual_network.failover[0].id : var.network_config.failover.vnet_id
 
-  # Built-in NSG rules: allow inter-VNet traffic only, deny everything else.
+  # Built-in NSG rules: allow inter-VNet traffic only; all other traffic is explicitly denied.
   # Priorities 4090–4096 are reserved. Custom rules (nsg_additional_rules) must use 100–4089.
-  # NOTE: Power Platform VNet injection may require outbound rules for Microsoft service
-  # endpoints. Add them via nsg_additional_rules if your environment requires it.
+  #
+  # IMPORTANT: The DenyAllOutBound rule at priority 4096 will block Power Platform VNet injection
+  # from functioning. PP VNet injection requires outbound HTTPS connectivity to Microsoft service
+  # endpoints. You MUST add the required outbound allow rules via nsg_additional_rules before
+  # applying this module. See the complete example for a starting point and the PP documentation:
+  # https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview
   nsg_default_rules = [
     {
       name                       = "AllowVNetInBound"

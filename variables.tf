@@ -46,7 +46,7 @@ variable "environments" {
 }
 
 variable "resource_group_location" {
-  description = "The Azure region for the resource group and ARM enterprise policy resource (e.g. 'westeurope', 'eastus')."
+  description = "The Azure region for the resource group and all Azure networking resources created by this module (e.g. 'westeurope', 'eastus')."
   type        = string
   nullable    = false
 
@@ -137,15 +137,17 @@ Each rule object supports:
 - `priority`: Rule priority (100-4089).
 - `direction`: "Inbound" or "Outbound".
 - `access`: "Allow" or "Deny".
-- `protocol`: "*", "Tcp", "Udp", or "Icmp".
+- `protocol`: "*", "Ah", "Esp", "Icmp", "Tcp", or "Udp".
 - `source_port_range`: Source port range (default: "*").
 - `destination_port_range`: Destination port range (default: "*").
 - `source_address_prefix`: Source address prefix (default: "*").
 - `destination_address_prefix`: Destination address prefix (default: "*").
 - `description`: Rule description (default: "").
 
-Note: Power Platform VNet injection may require outbound rules for Microsoft service endpoints.
-Add them here if your environment requires it.
+Note: Power Platform VNet injection REQUIRES outbound HTTPS connectivity to Microsoft service
+endpoints. The default DenyAllOutBound rule will prevent PP VNet injection from functioning
+unless you add the required outbound allow rules via this variable. See the complete example
+for a starting point and https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview.
 DESCRIPTION
   type = list(object({
     name                       = string
@@ -181,6 +183,13 @@ DESCRIPTION
       for rule in var.nsg_additional_rules : rule.priority >= 100 && rule.priority <= 4089
     ])
     error_message = "Each NSG rule priority must be between 100 and 4089. Values 4090-4096 are reserved for built-in module rules."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_additional_rules : contains(["*", "Ah", "Esp", "Icmp", "Tcp", "Udp"], rule.protocol)
+    ])
+    error_message = "Each NSG rule protocol must be one of: '*', 'Ah', 'Esp', 'Icmp', 'Tcp', 'Udp'."
   }
 }
 

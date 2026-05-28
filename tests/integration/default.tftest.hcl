@@ -13,8 +13,12 @@
 # Resources are automatically destroyed after test completion.
 #
 # Required environment variables for test variable injection:
-#   TF_VAR_environments — JSON map, e.g.:
+#   TF_VAR_environments               — JSON map, e.g.:
 #     '{"prod": {"id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}}'
+#   TF_VAR_enterprise_policy_location — PP region matching all linked environments (e.g. 'unitedstates')
+#   TF_VAR_resource_group_location    — Azure region for the resource group (e.g. 'eastus2')
+#   TF_VAR_primary_vnet_config        — JSON object, e.g.: '{"location":"eastus2"}'
+#   TF_VAR_failover_vnet_config       — JSON object, e.g.: '{"location":"westus2"}'
 
 # Provider configuration for integration tests.
 # Credentials are sourced from environment variables (see prerequisites above).
@@ -36,23 +40,16 @@ run "creates_enterprise_policy_with_managed_network" {
   command = apply
 
   variables {
-    enterprise_policy_name     = "tftest-integration-policy"
-    enterprise_policy_location = "europe"
-    resource_group_name        = "rg-tftest-integration"
-    resource_group_location    = "westeurope"
-
-    primary_vnet_config = {
-      location = "westeurope"
-    }
-    failover_vnet_config = {
-      location = "northeurope"
-    }
+    enterprise_policy_name = "tftest-integration-policy"
+    resource_group_name    = "rg-tftest-integration"
 
     tags = {
       environment = "integration-test"
       managed_by  = "terraform-test"
     }
-    # environments provided via TF_VAR_environments
+    # Location-dependent variables sourced via TF_VAR_* environment variables:
+    #   enterprise_policy_location, resource_group_location,
+    #   primary_vnet_config, failover_vnet_config, environments
   }
 
   assert {
@@ -71,7 +68,7 @@ run "creates_enterprise_policy_with_managed_network" {
   }
 
   assert {
-    condition     = output.resource_group_location == "westeurope"
+    condition     = output.resource_group_location == var.resource_group_location
     error_message = "resource_group_location output must match the input variable."
   }
 

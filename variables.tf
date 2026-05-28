@@ -191,6 +191,18 @@ DESCRIPTION
     ])
     error_message = "Each NSG rule protocol must be one of: '*', 'Ah', 'Esp', 'Icmp', 'Tcp', 'Udp'."
   }
+
+  validation {
+    condition     = length(var.nsg_additional_rules) == length(distinct([for rule in var.nsg_additional_rules : rule.name]))
+    error_message = "Each NSG rule name must be unique within nsg_additional_rules."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_additional_rules : !contains(["AllowVNetInBound", "DenyAllInBound", "AllowVNetOutBound", "DenyAllOutBound"], rule.name)
+    ])
+    error_message = "NSG rule names 'AllowVNetInBound', 'DenyAllInBound', 'AllowVNetOutBound', and 'DenyAllOutBound' are reserved for built-in module rules."
+  }
 }
 
 variable "primary_vnet_config" {

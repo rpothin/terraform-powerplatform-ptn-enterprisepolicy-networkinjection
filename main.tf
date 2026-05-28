@@ -1,14 +1,10 @@
 data "powerplatform_environments" "all" {}
 
 # ==============================================================================
-# RESOURCE GROUP
+# INPUT VALIDATION (cross-variable preconditions)
 # ==============================================================================
 
-resource "azurerm_resource_group" "this" {
-  location = var.resource_group_location
-  name     = var.resource_group_name
-  tags     = var.tags
-
+resource "terraform_data" "preconditions" {
   lifecycle {
     precondition {
       condition     = !var.create_network_infrastructure || (var.primary_vnet_config != null && var.failover_vnet_config != null)
@@ -28,195 +24,151 @@ resource "azurerm_resource_group" "this" {
 }
 
 # ==============================================================================
+# RESOURCE GROUP
+# ==============================================================================
+
+module "resource_group" {
+  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version = "~> 0.4"
+
+  enable_telemetry = false
+  location         = var.resource_group_location
+  name             = var.resource_group_name
+  tags             = var.tags
+}
+
+# ==============================================================================
 # NETWORK INFRASTRUCTURE (conditional on create_network_infrastructure)
 # ==============================================================================
 
-resource "azurerm_virtual_network" "primary" {
-  count = var.create_network_infrastructure ? 1 : 0
+module "primary_nsg" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
 
-  address_space       = [var.primary_vnet_config.address_space]
-  location            = var.primary_vnet_config.location
-  name                = "${var.enterprise_policy_name}-primary-vnet"
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_subnet" "primary_pp" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  address_prefixes     = [var.primary_vnet_config.pp_subnet_cidr]
-  name                 = "${var.enterprise_policy_name}-primary-pp-subnet"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.primary[0].name
-
-  delegation {
-    name = "power-platform-delegation"
-
-    service_delegation {
-      name = "Microsoft.PowerPlatform/enterprisePolicies"
-    }
-  }
-}
-
-resource "azurerm_subnet" "primary_pe" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  address_prefixes     = [var.primary_vnet_config.pe_subnet_cidr]
-  name                 = "${var.enterprise_policy_name}-primary-pe-subnet"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.primary[0].name
-}
-
-resource "azurerm_network_security_group" "primary" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  location            = var.primary_vnet_config.location
+  enable_telemetry    = false
+  location            = try(var.primary_vnet_config.location, "")
   name                = "${var.enterprise_policy_name}-primary-nsg"
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-
-  dynamic "security_rule" {
-    for_each = local.nsg_security_rules
-
-    content {
-      access                     = security_rule.value.access
-      description                = security_rule.value.description
-      destination_address_prefix = security_rule.value.destination_address_prefix
-      destination_port_range     = security_rule.value.destination_port_range
-      direction                  = security_rule.value.direction
-      name                       = security_rule.value.name
-      priority                   = security_rule.value.priority
-      protocol                   = security_rule.value.protocol
-      source_address_prefix      = security_rule.value.source_address_prefix
-      source_port_range          = security_rule.value.source_port_range
-    }
-  }
-}
-
-resource "azurerm_subnet_network_security_group_association" "primary_pp" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  network_security_group_id = azurerm_network_security_group.primary[0].id
-  subnet_id                 = azurerm_subnet.primary_pp[0].id
-}
-
-resource "azurerm_virtual_network" "failover" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  address_space       = [var.failover_vnet_config.address_space]
-  location            = var.failover_vnet_config.location
-  name                = "${var.enterprise_policy_name}-failover-vnet"
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = module.resource_group.name
+  security_rules      = local.nsg_security_rules_map
   tags                = var.tags
 }
 
-resource "azurerm_subnet" "failover_pp" {
-  count = var.create_network_infrastructure ? 1 : 0
+module "failover_nsg" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
 
-  address_prefixes     = [var.failover_vnet_config.pp_subnet_cidr]
-  name                 = "${var.enterprise_policy_name}-failover-pp-subnet"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.failover[0].name
-
-  delegation {
-    name = "power-platform-delegation"
-
-    service_delegation {
-      name = "Microsoft.PowerPlatform/enterprisePolicies"
-    }
-  }
-}
-
-resource "azurerm_subnet" "failover_pe" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  address_prefixes     = [var.failover_vnet_config.pe_subnet_cidr]
-  name                 = "${var.enterprise_policy_name}-failover-pe-subnet"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.failover[0].name
-}
-
-resource "azurerm_network_security_group" "failover" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  location            = var.failover_vnet_config.location
+  enable_telemetry    = false
+  location            = try(var.failover_vnet_config.location, "")
   name                = "${var.enterprise_policy_name}-failover-nsg"
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = module.resource_group.name
+  security_rules      = local.nsg_security_rules_map
   tags                = var.tags
+}
 
-  dynamic "security_rule" {
-    for_each = local.nsg_security_rules
+module "primary_vnet" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version = "~> 0.17"
 
-    content {
-      access                     = security_rule.value.access
-      description                = security_rule.value.description
-      destination_address_prefix = security_rule.value.destination_address_prefix
-      destination_port_range     = security_rule.value.destination_port_range
-      direction                  = security_rule.value.direction
-      name                       = security_rule.value.name
-      priority                   = security_rule.value.priority
-      protocol                   = security_rule.value.protocol
-      source_address_prefix      = security_rule.value.source_address_prefix
-      source_port_range          = security_rule.value.source_port_range
+  address_space    = [try(var.primary_vnet_config.address_space, "10.0.0.0/16")]
+  enable_telemetry = false
+  location         = try(var.primary_vnet_config.location, "")
+  name             = "${var.enterprise_policy_name}-primary-vnet"
+  parent_id        = module.resource_group.resource_id
+  tags             = var.tags
+
+  subnets = {
+    pp = {
+      name             = "${var.enterprise_policy_name}-primary-pp-subnet"
+      address_prefixes = [try(var.primary_vnet_config.pp_subnet_cidr, "10.0.0.0/24")]
+      delegations = [{
+        name = "power-platform-delegation"
+        service_delegation = {
+          name = "Microsoft.PowerPlatform/enterprisePolicies"
+        }
+      }]
+      network_security_group = {
+        id = module.primary_nsg[0].resource_id
+      }
+    }
+    pe = {
+      name             = "${var.enterprise_policy_name}-primary-pe-subnet"
+      address_prefixes = [try(var.primary_vnet_config.pe_subnet_cidr, "10.0.1.0/24")]
     }
   }
 }
 
-resource "azurerm_subnet_network_security_group_association" "failover_pp" {
-  count = var.create_network_infrastructure ? 1 : 0
+module "failover_vnet" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-virtualnetwork/azurerm"
+  version = "~> 0.17"
 
-  network_security_group_id = azurerm_network_security_group.failover[0].id
-  subnet_id                 = azurerm_subnet.failover_pp[0].id
-}
+  address_space    = [try(var.failover_vnet_config.address_space, "10.1.0.0/16")]
+  enable_telemetry = false
+  location         = try(var.failover_vnet_config.location, "")
+  name             = "${var.enterprise_policy_name}-failover-vnet"
+  parent_id        = module.resource_group.resource_id
+  tags             = var.tags
 
-resource "azurerm_virtual_network_peering" "primary_to_failover" {
-  count = var.create_network_infrastructure ? 1 : 0
+  # Peerings defined on failover to avoid circular dependency: primary has no
+  # peer dependencies. create_reverse_peering = true automatically creates the
+  # reciprocal primary→failover peering within this module call.
+  peerings = {
+    to_primary = {
+      name                               = "${var.enterprise_policy_name}-failover-to-primary"
+      remote_virtual_network_resource_id = module.primary_vnet[0].resource_id
+      create_reverse_peering             = true
+      reverse_name                       = "${var.enterprise_policy_name}-primary-to-failover"
+    }
+  }
 
-  name                      = "${var.enterprise_policy_name}-primary-to-failover"
-  remote_virtual_network_id = azurerm_virtual_network.failover[0].id
-  resource_group_name       = azurerm_resource_group.this.name
-  virtual_network_name      = azurerm_virtual_network.primary[0].name
-}
-
-resource "azurerm_virtual_network_peering" "failover_to_primary" {
-  count = var.create_network_infrastructure ? 1 : 0
-
-  name                      = "${var.enterprise_policy_name}-failover-to-primary"
-  remote_virtual_network_id = azurerm_virtual_network.primary[0].id
-  resource_group_name       = azurerm_resource_group.this.name
-  virtual_network_name      = azurerm_virtual_network.failover[0].name
+  subnets = {
+    pp = {
+      name             = "${var.enterprise_policy_name}-failover-pp-subnet"
+      address_prefixes = [try(var.failover_vnet_config.pp_subnet_cidr, "10.1.0.0/24")]
+      delegations = [{
+        name = "power-platform-delegation"
+        service_delegation = {
+          name = "Microsoft.PowerPlatform/enterprisePolicies"
+        }
+      }]
+      network_security_group = {
+        id = module.failover_nsg[0].resource_id
+      }
+    }
+    pe = {
+      name             = "${var.enterprise_policy_name}-failover-pe-subnet"
+      address_prefixes = [try(var.failover_vnet_config.pe_subnet_cidr, "10.1.1.0/24")]
+    }
+  }
 }
 
 # ==============================================================================
 # PRIVATE DNS ZONES (conditional on create_private_dns_zones)
 # ==============================================================================
 
-resource "azurerm_private_dns_zone" "this" {
+module "private_dns_zone" {
   for_each = local.private_dns_zones_map
+  source   = "Azure/avm-res-network-privatednszone/azurerm"
+  version  = "~> 0.5"
 
-  name                = each.key
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
+  domain_name      = each.key
+  enable_telemetry = false
+  parent_id        = module.resource_group.resource_id
+  tags             = var.tags
 
-resource "azurerm_private_dns_zone_virtual_network_link" "primary" {
-  for_each = local.private_dns_zones_map
-
-  name                  = "${replace(each.key, ".", "-")}-primary-link"
-  private_dns_zone_name = azurerm_private_dns_zone.this[each.key].name
-  resource_group_name   = azurerm_resource_group.this.name
-  tags                  = var.tags
-  virtual_network_id    = local.primary_vnet_id
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "failover" {
-  for_each = local.private_dns_zones_map
-
-  name                  = "${replace(each.key, ".", "-")}-failover-link"
-  private_dns_zone_name = azurerm_private_dns_zone.this[each.key].name
-  resource_group_name   = azurerm_resource_group.this.name
-  tags                  = var.tags
-  virtual_network_id    = local.failover_vnet_id
+  virtual_network_links = {
+    primary = {
+      name               = "${replace(each.key, ".", "-")}-primary-link"
+      virtual_network_id = local.primary_vnet_id
+    }
+    failover = {
+      name               = "${replace(each.key, ".", "-")}-failover-link"
+      virtual_network_id = local.failover_vnet_id
+    }
+  }
 }
 
 # ==============================================================================
@@ -228,7 +180,7 @@ resource "azapi_resource" "enterprise_policy" {
   body      = local.enterprise_policy_body
   location  = local.enterprise_policy_arm_location
   name      = var.enterprise_policy_name
-  parent_id = azurerm_resource_group.this.id
+  parent_id = module.resource_group.resource_id
   type      = "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"
 
   # Optional arguments (alphabetical, before optional nested blocks per TFNFR8)
@@ -249,8 +201,9 @@ resource "azapi_resource" "enterprise_policy" {
 
   # Meta-arguments (depends_on before lifecycle per TFNFR8)
   depends_on = [
-    azurerm_subnet_network_security_group_association.primary_pp,
-    azurerm_subnet_network_security_group_association.failover_pp,
+    terraform_data.preconditions,
+    module.primary_vnet,
+    module.failover_vnet,
   ]
 
   lifecycle {
@@ -288,3 +241,4 @@ resource "powerplatform_enterprise_policy" "this" {
     }
   }
 }
+

@@ -335,7 +335,7 @@ run "rejects_create_infrastructure_without_vnet_configs" {
   }
 
   expect_failures = [
-    azurerm_resource_group.this,
+    terraform_data.preconditions,
   ]
 }
 
@@ -355,7 +355,7 @@ run "rejects_byo_network_without_network_config" {
   }
 
   expect_failures = [
-    azurerm_resource_group.this,
+    terraform_data.preconditions,
   ]
 }
 
@@ -375,7 +375,7 @@ run "rejects_same_primary_and_failover_vnet_location" {
   }
 
   expect_failures = [
-    azurerm_resource_group.this,
+    terraform_data.preconditions,
   ]
 }
 
@@ -410,5 +410,144 @@ run "rejects_nsg_rule_with_invalid_protocol" {
   expect_failures = [
     var.nsg_additional_rules,
   ]
+}
+
+# ---------------------------------------------------------------------------
+# Variable validation: NSG rule name uniqueness and reserved names
+# ---------------------------------------------------------------------------
+
+run "rejects_duplicate_nsg_rule_names" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_additional_rules = [
+      {
+        name      = "allow-https"
+        priority  = 100
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+      {
+        name      = "allow-https" # duplicate name
+        priority  = 101
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_additional_rules,
+  ]
+}
+
+run "rejects_reserved_nsg_rule_name" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_additional_rules = [
+      {
+        name      = "DenyAllOutBound" # reserved built-in name
+        priority  = 100
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "*"
+      },
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_additional_rules,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Private DNS zones with create_network_infrastructure = true
+# ---------------------------------------------------------------------------
+
+run "create_private_dns_zones_with_managed_network" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config      = { location = "westeurope" }
+    failover_vnet_config     = { location = "northeurope" }
+    create_private_dns_zones = true
+    private_dns_zone_names   = ["privatelink.blob.core.windows.net"]
+  }
+
+  assert {
+    condition     = var.create_private_dns_zones == true
+    error_message = "create_private_dns_zones should be true."
+  }
+
+  assert {
+    condition     = length(local.private_dns_zones_map) == 1
+    error_message = "private_dns_zones_map should contain one entry."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Private DNS zones with create_network_infrastructure = false (BYO network)
+# ---------------------------------------------------------------------------
+
+run "create_private_dns_zones_with_byo_network" {
+  command = plan
+
+  variables {
+    enterprise_policy_name        = "test-policy"
+    enterprise_policy_location    = "europe"
+    resource_group_name           = "rg-test"
+    resource_group_location       = "westeurope"
+    create_network_infrastructure = false
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    network_config = {
+      primary = {
+        vnet_id     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/virtualNetworks/vnet-primary"
+        subnet_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/virtualNetworks/vnet-primary/subnets/pp-subnet"
+        subnet_name = "pp-subnet"
+      }
+      failover = {
+        vnet_id     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/virtualNetworks/vnet-failover"
+        subnet_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/virtualNetworks/vnet-failover/subnets/pp-subnet"
+        subnet_name = "pp-subnet"
+      }
+    }
+    create_private_dns_zones = true
+    private_dns_zone_names   = ["privatelink.blob.core.windows.net", "privatelink.vault.azure.net"]
+  }
+
+  assert {
+    condition     = length(local.private_dns_zones_map) == 2
+    error_message = "private_dns_zones_map should contain two entries."
+  }
 }
 

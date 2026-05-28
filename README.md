@@ -40,7 +40,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.9, < 2.0)
 
-- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.0)
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.4)
 
 - <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
 
@@ -51,23 +51,8 @@ The following requirements are needed by this module:
 The following resources are used by this module:
 
 - [azapi_resource.enterprise_policy](https://registry.terraform.io/providers/azure/azapi/latest/docs/resources/resource) (resource)
-- [azurerm_network_security_group.failover](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group) (resource)
-- [azurerm_network_security_group.primary](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group) (resource)
-- [azurerm_private_dns_zone.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) (resource)
-- [azurerm_private_dns_zone_virtual_network_link.failover](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) (resource)
-- [azurerm_private_dns_zone_virtual_network_link.primary](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) (resource)
-- [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) (resource)
-- [azurerm_subnet.failover_pe](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) (resource)
-- [azurerm_subnet.failover_pp](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) (resource)
-- [azurerm_subnet.primary_pe](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) (resource)
-- [azurerm_subnet.primary_pp](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet) (resource)
-- [azurerm_subnet_network_security_group_association.failover_pp](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
-- [azurerm_subnet_network_security_group_association.primary_pp](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) (resource)
-- [azurerm_virtual_network.failover](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network) (resource)
-- [azurerm_virtual_network.primary](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network) (resource)
-- [azurerm_virtual_network_peering.failover_to_primary](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network_peering) (resource)
-- [azurerm_virtual_network_peering.primary_to_failover](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network_peering) (resource)
 - [powerplatform_enterprise_policy.this](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/resources/enterprise_policy) (resource)
+- [terraform_data.preconditions](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) (resource)
 - [powerplatform_environments.all](https://registry.terraform.io/providers/microsoft/power-platform/latest/docs/data-sources/environments) (data source)
 
 <!-- markdownlint-disable MD013 -->
@@ -305,7 +290,43 @@ Description: The name of the Azure resource group.
 
 ## Modules
 
-No modules.
+The following Modules are called:
+
+### <a name="module_failover_nsg"></a> [failover\_nsg](#module\_failover\_nsg)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
+### <a name="module_failover_vnet"></a> [failover\_vnet](#module\_failover\_vnet)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.17
+
+### <a name="module_primary_nsg"></a> [primary\_nsg](#module\_primary\_nsg)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
+### <a name="module_primary_vnet"></a> [primary\_vnet](#module\_primary\_vnet)
+
+Source: Azure/avm-res-network-virtualnetwork/azurerm
+
+Version: ~> 0.17
+
+### <a name="module_private_dns_zone"></a> [private\_dns\_zone](#module\_private\_dns\_zone)
+
+Source: Azure/avm-res-network-privatednszone/azurerm
+
+Version: ~> 0.5
+
+### <a name="module_resource_group"></a> [resource\_group](#module\_resource\_group)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: ~> 0.4
 
 <!-- TODO (before publishing to Terraform Registry): Replace the relative links below
      with absolute GitHub URLs, e.g.:

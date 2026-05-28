@@ -39,11 +39,11 @@ locals {
   }
 
   # Resolved PP-delegated subnet ID and name — failover
-  failover_pp_subnet_id   = var.create_network_infrastructure ? azurerm_subnet.failover_pp[0].id : var.network_config.failover.subnet_id
-  failover_pp_subnet_name = var.create_network_infrastructure ? azurerm_subnet.failover_pp[0].name : var.network_config.failover.subnet_name
+  failover_pp_subnet_id   = length(module.failover_vnet) > 0 ? module.failover_vnet[0].subnets["pp"].resource_id : try(var.network_config.failover.subnet_id, "")
+  failover_pp_subnet_name = length(module.failover_vnet) > 0 ? module.failover_vnet[0].subnets["pp"].name : try(var.network_config.failover.subnet_name, "")
 
   # Resolved VNet ID — failover
-  failover_vnet_id = var.create_network_infrastructure ? azurerm_virtual_network.failover[0].id : var.network_config.failover.vnet_id
+  failover_vnet_id = length(module.failover_vnet) > 0 ? module.failover_vnet[0].resource_id : try(var.network_config.failover.vnet_id, "")
 
   # Built-in NSG rules: allow inter-VNet traffic only; all other traffic is explicitly denied.
   # Priorities 4090–4096 are reserved. Custom rules (nsg_additional_rules) must use 100–4089.
@@ -107,12 +107,15 @@ locals {
   # Merged NSG rules: custom rules are evaluated first (lower priority = higher precedence)
   nsg_security_rules = concat(var.nsg_additional_rules, local.nsg_default_rules)
 
+  # NSG security rules as a map keyed by rule name, for use with the AVM NSG module
+  nsg_security_rules_map = { for rule in local.nsg_security_rules : rule.name => rule }
+
   # Resolved PP-delegated subnet ID and name — primary
-  primary_pp_subnet_id   = var.create_network_infrastructure ? azurerm_subnet.primary_pp[0].id : var.network_config.primary.subnet_id
-  primary_pp_subnet_name = var.create_network_infrastructure ? azurerm_subnet.primary_pp[0].name : var.network_config.primary.subnet_name
+  primary_pp_subnet_id   = length(module.primary_vnet) > 0 ? module.primary_vnet[0].subnets["pp"].resource_id : try(var.network_config.primary.subnet_id, "")
+  primary_pp_subnet_name = length(module.primary_vnet) > 0 ? module.primary_vnet[0].subnets["pp"].name : try(var.network_config.primary.subnet_name, "")
 
   # Resolved VNet ID — primary
-  primary_vnet_id = var.create_network_infrastructure ? azurerm_virtual_network.primary[0].id : var.network_config.primary.vnet_id
+  primary_vnet_id = length(module.primary_vnet) > 0 ? module.primary_vnet[0].resource_id : try(var.network_config.primary.vnet_id, "")
 
   # DNS zones keyed by zone name for for_each usage
   private_dns_zones_map = var.create_private_dns_zones ? {

@@ -642,3 +642,101 @@ run "create_private_dns_zones_with_byo_network" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# PE NSG: PE NSG modules are created alongside PP NSG when managing infra
+# ---------------------------------------------------------------------------
+
+run "creates_pe_nsg_with_managed_network" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+  }
+
+  assert {
+    condition     = length(local.nsg_pe_security_rules_map) == 4
+    error_message = "PE NSG should have exactly 4 built-in rules when nsg_pe_additional_rules is empty."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# PE NSG: rejects duplicate priorities in nsg_pe_additional_rules
+# ---------------------------------------------------------------------------
+
+run "rejects_duplicate_pe_nsg_rule_priorities" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_pe_additional_rules = [
+      {
+        name      = "allow-mgmt-a"
+        priority  = 300
+        direction = "Inbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+      {
+        name      = "allow-mgmt-b" # different name, same priority — invalid
+        priority  = 300
+        direction = "Inbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_pe_additional_rules,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# PE NSG: rejects reserved rule names in nsg_pe_additional_rules
+# ---------------------------------------------------------------------------
+
+run "rejects_reserved_pe_nsg_rule_name" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_pe_additional_rules = [
+      {
+        name      = "AllowVNetInBound" # reserved built-in name
+        priority  = 100
+        direction = "Inbound"
+        access    = "Allow"
+        protocol  = "*"
+      },
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_pe_additional_rules,
+  ]
+}
+

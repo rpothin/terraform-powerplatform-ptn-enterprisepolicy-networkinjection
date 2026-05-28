@@ -18,6 +18,11 @@ output "enterprise_policy_system_id" {
   value       = azapi_resource.enterprise_policy.output.properties.systemId
 }
 
+output "failover_pe_subnet_id" {
+  description = "The Azure resource ID of the failover private endpoint subnet. Empty string when create_network_infrastructure is false."
+  value       = local.failover_pe_subnet_id
+}
+
 output "failover_subnet_id" {
   description = "The Azure resource ID of the failover PP-delegated subnet."
   value       = local.failover_pp_subnet_id
@@ -26,6 +31,11 @@ output "failover_subnet_id" {
 output "failover_vnet_id" {
   description = "The Azure resource ID of the failover virtual network."
   value       = local.failover_vnet_id
+}
+
+output "primary_pe_subnet_id" {
+  description = "The Azure resource ID of the primary private endpoint subnet. Empty string when create_network_infrastructure is false."
+  value       = local.primary_pe_subnet_id
 }
 
 output "primary_subnet_id" {

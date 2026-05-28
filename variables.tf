@@ -221,6 +221,87 @@ DESCRIPTION
   }
 }
 
+variable "nsg_pe_additional_rules" {
+  description = <<DESCRIPTION
+Additional security rules to add to the NSGs on the private endpoint subnets, on top of the secure defaults (inter-VNet traffic only).
+Priorities must be in range 100-4089 to avoid conflicts with built-in rules (priorities 4090-4096).
+Each rule object supports:
+- `name`: Rule name.
+- `priority`: Rule priority (100-4089).
+- `direction`: "Inbound" or "Outbound".
+- `access`: "Allow" or "Deny".
+- `protocol`: "*", "Ah", "Esp", "Icmp", "Tcp", or "Udp".
+- `source_port_range`: Source port range (default: "*").
+- `destination_port_range`: Destination port range (default: "*").
+- `source_address_prefix`: Source address prefix (default: "*").
+- `destination_address_prefix`: Destination address prefix (default: "*").
+- `description`: Rule description (default: "").
+
+Unlike the PP-delegated subnet NSG, no mandatory outbound rules are required for PE subnets — private endpoints
+are passive receivers and do not initiate outbound connections. The default VNet-only rules are sufficient for
+normal PE operation. Use this variable only to add extra allow/deny rules for management or monitoring traffic.
+DESCRIPTION
+  type = list(object({
+    name                       = string
+    priority                   = number
+    direction                  = string
+    access                     = string
+    protocol                   = string
+    source_port_range          = optional(string, "*")
+    destination_port_range     = optional(string, "*")
+    source_address_prefix      = optional(string, "*")
+    destination_address_prefix = optional(string, "*")
+    description                = optional(string, "")
+  }))
+  default  = []
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_pe_additional_rules : contains(["Inbound", "Outbound"], rule.direction)
+    ])
+    error_message = "Each NSG PE rule direction must be 'Inbound' or 'Outbound'."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_pe_additional_rules : contains(["Allow", "Deny"], rule.access)
+    ])
+    error_message = "Each NSG PE rule access must be 'Allow' or 'Deny'."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_pe_additional_rules : rule.priority >= 100 && rule.priority <= 4089
+    ])
+    error_message = "Each NSG PE rule priority must be between 100 and 4089. Values 4090-4096 are reserved for built-in module rules."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_pe_additional_rules : contains(["*", "Ah", "Esp", "Icmp", "Tcp", "Udp"], rule.protocol)
+    ])
+    error_message = "Each NSG PE rule protocol must be one of: '*', 'Ah', 'Esp', 'Icmp', 'Tcp', 'Udp'."
+  }
+
+  validation {
+    condition     = length(var.nsg_pe_additional_rules) == length(distinct([for rule in var.nsg_pe_additional_rules : rule.name]))
+    error_message = "Each NSG PE rule name must be unique within nsg_pe_additional_rules."
+  }
+
+  validation {
+    condition     = length(var.nsg_pe_additional_rules) == length(distinct([for rule in var.nsg_pe_additional_rules : rule.priority]))
+    error_message = "Each NSG PE rule priority must be unique within nsg_pe_additional_rules."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.nsg_pe_additional_rules : !contains(["AllowVNetInBound", "DenyAllInBound", "AllowVNetOutBound", "DenyAllOutBound"], rule.name)
+    ])
+    error_message = "NSG PE rule names 'AllowVNetInBound', 'DenyAllInBound', 'AllowVNetOutBound', and 'DenyAllOutBound' are reserved for built-in module rules."
+  }
+}
+
 variable "primary_vnet_config" {
   description = <<DESCRIPTION
 Configuration for the primary virtual network, used when create_network_infrastructure is true.

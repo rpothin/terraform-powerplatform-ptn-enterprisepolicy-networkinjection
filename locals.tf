@@ -38,6 +38,9 @@ locals {
     for env in data.powerplatform_environments.all.environments : env.id => env
   }
 
+  # Resolved PE subnet ID — failover (BYO mode returns empty string; PE subnet not part of network_config)
+  failover_pe_subnet_id = length(module.failover_vnet) > 0 ? module.failover_vnet[0].subnets["pe"].resource_id : ""
+
   # Resolved PP-delegated subnet ID and name — failover
   failover_pp_subnet_id   = length(module.failover_vnet) > 0 ? module.failover_vnet[0].subnets["pp"].resource_id : try(var.network_config.failover.subnet_id, "")
   failover_pp_subnet_name = length(module.failover_vnet) > 0 ? module.failover_vnet[0].subnets["pp"].name : try(var.network_config.failover.subnet_name, "")
@@ -109,6 +112,15 @@ locals {
 
   # NSG security rules as a map keyed by rule name, for use with the AVM NSG module
   nsg_security_rules_map = { for rule in local.nsg_security_rules : rule.name => rule }
+
+  # Merged NSG rules for PE subnets (same defaults; no mandatory outbound rules unlike PP NSG)
+  nsg_pe_security_rules = concat(var.nsg_pe_additional_rules, local.nsg_default_rules)
+
+  # PE NSG security rules as a map keyed by rule name, for use with the AVM NSG module
+  nsg_pe_security_rules_map = { for rule in local.nsg_pe_security_rules : rule.name => rule }
+
+  # Resolved PE subnet ID — primary (BYO mode returns empty string; PE subnet not part of network_config)
+  primary_pe_subnet_id = length(module.primary_vnet) > 0 ? module.primary_vnet[0].subnets["pe"].resource_id : ""
 
   # Resolved PP-delegated subnet ID and name — primary
   primary_pp_subnet_id   = length(module.primary_vnet) > 0 ? module.primary_vnet[0].subnets["pp"].resource_id : try(var.network_config.primary.subnet_id, "")

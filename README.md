@@ -38,7 +38,17 @@ When `create_network_infrastructure = true`, this module creates NSGs with a `De
 
 You must provide the required outbound allow rules via `nsg_additional_rules` before applying the module. See the [complete example](examples/complete/) for a starting point and the [Power Platform VNet injection documentation](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview) for the current list of required endpoints.
 
-> **Note on hub-and-spoke:** If your VNets are peered to a hub containing an NVA or Azure Firewall, be aware that VNet peering does not set `allow_forwarded_traffic` by default. Forwarded traffic from a hub will be dropped unless `allow_forwarded_traffic = true` is configured on the peering. This module creates direct primary-to-failover peering only; for hub-and-spoke architectures you will need to configure additional peerings manually.
+## Private endpoint subnet security
+
+When `create_network_infrastructure = true`, PE subnets are protected by a dedicated NSG that allows only intra-VNet traffic by default (same deny-all base rules as the PP-delegated NSG). Unlike the PP-delegated NSG, **no mandatory outbound rules are required** — private endpoints are passive receivers and do not initiate connections.
+
+NSG enforcement is explicitly enabled on PE subnets (`private_endpoint_network_policies = "NetworkSecurityGroupEnabled"`), which is required for Azure to enforce the NSG on private endpoint NICs. To add extra allow/deny rules, use the `nsg_pe_additional_rules` variable.
+
+## VNet peering and cross-region PE access
+
+When both VNets are created, the module peers them with `allow_forwarded_traffic = true` on both directions. This is required when a private endpoint exists in only one region's subnet (a common scenario due to private DNS zone constraints) and workloads in the other region need to reach it across the peering link. Private DNS zones are linked to both VNets, so DNS resolution works from either region.
+
+> **Note on hub-and-spoke:** The module creates direct primary-to-failover peering only. For hub-and-spoke architectures with an NVA or Azure Firewall in a hub, configure additional peerings manually and set `allow_gateway_transit` / `use_remote_gateways` as needed on those external peerings.
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
@@ -218,6 +228,45 @@ list(object({
 
 Default: `[]`
 
+### <a name="input_nsg_pe_additional_rules"></a> [nsg\_pe\_additional\_rules](#input\_nsg\_pe\_additional\_rules)
+
+Description: Additional security rules to add to the NSGs on the private endpoint subnets, on top of the secure defaults (inter-VNet traffic only).  
+Priorities must be in range 100-4089 to avoid conflicts with built-in rules (priorities 4090-4096).  
+Each rule object supports:
+- `name`: Rule name.
+- `priority`: Rule priority (100-4089).
+- `direction`: "Inbound" or "Outbound".
+- `access`: "Allow" or "Deny".
+- `protocol`: "*", "Ah", "Esp", "Icmp", "Tcp", or "Udp".
+- `source_port_range`: Source port range (default: "*").
+- `destination_port_range`: Destination port range (default: "*").
+- `source_address_prefix`: Source address prefix (default: "*").
+- `destination_address_prefix`: Destination address prefix (default: "*").
+- `description`: Rule description (default: "").
+
+Unlike the PP-delegated subnet NSG, no mandatory outbound rules are required for PE subnets — private endpoints  
+are passive receivers and do not initiate outbound connections. The default VNet-only rules are sufficient for  
+normal PE operation. Use this variable only to add extra allow/deny rules for management or monitoring traffic.
+
+Type:
+
+```hcl
+list(object({
+    name                       = string
+    priority                   = number
+    direction                  = string
+    access                     = string
+    protocol                   = string
+    source_port_range          = optional(string, "*")
+    destination_port_range     = optional(string, "*")
+    source_address_prefix      = optional(string, "*")
+    destination_address_prefix = optional(string, "*")
+    description                = optional(string, "")
+  }))
+```
+
+Default: `[]`
+
 ### <a name="input_primary_vnet_config"></a> [primary\_vnet\_config](#input\_primary\_vnet\_config)
 
 Description: Configuration for the primary virtual network, used when create\_network\_infrastructure is true.
@@ -271,6 +320,10 @@ Description: Map of environment key to enterprise policy link details, keyed by 
 
 Description: The Power Platform system ID of the enterprise policy, used when linking environments via powerplatform\_enterprise\_policy.
 
+### <a name="output_failover_pe_subnet_id"></a> [failover\_pe\_subnet\_id](#output\_failover\_pe\_subnet\_id)
+
+Description: The Azure resource ID of the failover private endpoint subnet. Empty string when create\_network\_infrastructure is false.
+
 ### <a name="output_failover_subnet_id"></a> [failover\_subnet\_id](#output\_failover\_subnet\_id)
 
 Description: The Azure resource ID of the failover PP-delegated subnet.
@@ -278,6 +331,10 @@ Description: The Azure resource ID of the failover PP-delegated subnet.
 ### <a name="output_failover_vnet_id"></a> [failover\_vnet\_id](#output\_failover\_vnet\_id)
 
 Description: The Azure resource ID of the failover virtual network.
+
+### <a name="output_primary_pe_subnet_id"></a> [primary\_pe\_subnet\_id](#output\_primary\_pe\_subnet\_id)
+
+Description: The Azure resource ID of the primary private endpoint subnet. Empty string when create\_network\_infrastructure is false.
 
 ### <a name="output_primary_subnet_id"></a> [primary\_subnet\_id](#output\_primary\_subnet\_id)
 
@@ -309,6 +366,12 @@ Source: Azure/avm-res-network-networksecuritygroup/azurerm
 
 Version: ~> 0.5
 
+### <a name="module_failover_pe_nsg"></a> [failover\_pe\_nsg](#module\_failover\_pe\_nsg)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
 ### <a name="module_failover_vnet"></a> [failover\_vnet](#module\_failover\_vnet)
 
 Source: Azure/avm-res-network-virtualnetwork/azurerm
@@ -316,6 +379,12 @@ Source: Azure/avm-res-network-virtualnetwork/azurerm
 Version: ~> 0.17
 
 ### <a name="module_primary_nsg"></a> [primary\_nsg](#module\_primary\_nsg)
+
+Source: Azure/avm-res-network-networksecuritygroup/azurerm
+
+Version: ~> 0.5
+
+### <a name="module_primary_pe_nsg"></a> [primary\_pe\_nsg](#module\_primary\_pe\_nsg)
 
 Source: Azure/avm-res-network-networksecuritygroup/azurerm
 

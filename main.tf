@@ -67,6 +67,32 @@ module "failover_nsg" {
   tags                = var.tags
 }
 
+module "primary_pe_nsg" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
+
+  enable_telemetry    = false
+  location            = try(var.primary_vnet_config.location, "")
+  name                = "${var.enterprise_policy_name}-primary-pe-nsg"
+  resource_group_name = module.resource_group.name
+  security_rules      = local.nsg_pe_security_rules_map
+  tags                = var.tags
+}
+
+module "failover_pe_nsg" {
+  count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
+  source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
+  version = "~> 0.5"
+
+  enable_telemetry    = false
+  location            = try(var.failover_vnet_config.location, "")
+  name                = "${var.enterprise_policy_name}-failover-pe-nsg"
+  resource_group_name = module.resource_group.name
+  security_rules      = local.nsg_pe_security_rules_map
+  tags                = var.tags
+}
+
 module "primary_vnet" {
   count   = var.create_network_infrastructure && var.primary_vnet_config != null && var.failover_vnet_config != null ? 1 : 0
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
@@ -94,8 +120,12 @@ module "primary_vnet" {
       }
     }
     pe = {
-      name             = "${var.enterprise_policy_name}-primary-pe-subnet"
-      address_prefixes = [try(var.primary_vnet_config.pe_subnet_cidr, "10.0.1.0/24")]
+      name                              = "${var.enterprise_policy_name}-primary-pe-subnet"
+      address_prefixes                  = [try(var.primary_vnet_config.pe_subnet_cidr, "10.0.1.0/24")]
+      private_endpoint_network_policies = "NetworkSecurityGroupEnabled"
+      network_security_group = {
+        id = module.primary_pe_nsg[0].resource_id
+      }
     }
   }
 }
@@ -115,12 +145,16 @@ module "failover_vnet" {
   # Peerings defined on failover to avoid circular dependency: primary has no
   # peer dependencies. create_reverse_peering = true automatically creates the
   # reciprocal primary→failover peering within this module call.
+  # allow_forwarded_traffic = true on both directions enables cross-region PE
+  # access: a PE in one region's subnet can be reached from the other region.
   peerings = {
     to_primary = {
       name                               = "${var.enterprise_policy_name}-failover-to-primary"
       remote_virtual_network_resource_id = module.primary_vnet[0].resource_id
       create_reverse_peering             = true
       reverse_name                       = "${var.enterprise_policy_name}-primary-to-failover"
+      allow_forwarded_traffic            = true
+      reverse_allow_forwarded_traffic    = true
     }
   }
 
@@ -139,8 +173,12 @@ module "failover_vnet" {
       }
     }
     pe = {
-      name             = "${var.enterprise_policy_name}-failover-pe-subnet"
-      address_prefixes = [try(var.failover_vnet_config.pe_subnet_cidr, "10.1.1.0/24")]
+      name                              = "${var.enterprise_policy_name}-failover-pe-subnet"
+      address_prefixes                  = [try(var.failover_vnet_config.pe_subnet_cidr, "10.1.1.0/24")]
+      private_endpoint_network_policies = "NetworkSecurityGroupEnabled"
+      network_security_group = {
+        id = module.failover_pe_nsg[0].resource_id
+      }
     }
   }
 }

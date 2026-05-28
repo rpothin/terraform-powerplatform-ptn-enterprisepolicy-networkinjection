@@ -36,5 +36,15 @@ When `create_network_infrastructure = true`, this module creates NSGs with a `De
 
 You must provide the required outbound allow rules via `nsg_additional_rules` before applying the module. See the [complete example](examples/complete/) for a starting point and the [Power Platform VNet injection documentation](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview) for the current list of required endpoints.
 
-> **Note on hub-and-spoke:** If your VNets are peered to a hub containing an NVA or Azure Firewall, be aware that VNet peering does not set `allow_forwarded_traffic` by default. Forwarded traffic from a hub will be dropped unless `allow_forwarded_traffic = true` is configured on the peering. This module creates direct primary-to-failover peering only; for hub-and-spoke architectures you will need to configure additional peerings manually.
+## Private endpoint subnet security
+
+When `create_network_infrastructure = true`, PE subnets are protected by a dedicated NSG that allows only intra-VNet traffic by default (same deny-all base rules as the PP-delegated NSG). Unlike the PP-delegated NSG, **no mandatory outbound rules are required** — private endpoints are passive receivers and do not initiate connections.
+
+NSG enforcement is explicitly enabled on PE subnets (`private_endpoint_network_policies = "NetworkSecurityGroupEnabled"`), which is required for Azure to enforce the NSG on private endpoint NICs. To add extra allow/deny rules, use the `nsg_pe_additional_rules` variable.
+
+## VNet peering and cross-region PE access
+
+When both VNets are created, the module peers them with `allow_forwarded_traffic = true` on both directions. This is required when a private endpoint exists in only one region's subnet (a common scenario due to private DNS zone constraints) and workloads in the other region need to reach it across the peering link. Private DNS zones are linked to both VNets, so DNS resolution works from either region.
+
+> **Note on hub-and-spoke:** The module creates direct primary-to-failover peering only. For hub-and-spoke architectures with an NVA or Azure Firewall in a hub, configure additional peerings manually and set `allow_gateway_transit` / `use_remote_gateways` as needed on those external peerings.
 

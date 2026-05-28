@@ -21,6 +21,13 @@ This Power Platform Terraform pattern module creates all Azure networking infras
   ```bash
   az provider register --namespace Microsoft.PowerPlatform
   ```
+- `enterprisePoliciesPreview` preview feature registered in the target Azure subscription (required for the `Microsoft.PowerPlatform/enterprisePolicies` ARM resource):
+  ```bash
+  az feature register --namespace Microsoft.PowerPlatform --name enterprisePoliciesPreview
+  # Wait for state to become "Registered" before applying
+  az feature show --namespace Microsoft.PowerPlatform --name enterprisePoliciesPreview --query properties.state
+  ```
+  > **Note:** This module uses the `Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview` ARM API, which is the only available version. The preview nature of the API is an upstream constraint — no GA version exists at this time.
 - OIDC-based authentication configured for all three providers (`azapi`, `azurerm`, `powerplatform`)
 
 ## Important: NSG outbound requirements

@@ -25,7 +25,13 @@ variable "enterprise_policy_name" {
 }
 
 variable "environments" {
-  description = "Map of Power Platform environments to link to the enterprise policy. Key is a logical identifier; value contains the environment GUID. All environments must be in the same Power Platform region as enterprise_policy_location. Environments must be of Managed type (prerequisite — not enforced at runtime)."
+  description = <<DESCRIPTION
+Map of Power Platform environments to link to the enterprise policy.
+- Key: logical identifier for the environment (used as the map key in outputs).
+- `id`: The Power Platform environment GUID.
+All environments must be in the same Power Platform region as `enterprise_policy_location`.
+Environments must be of **Managed** type — this is a prerequisite not enforced at runtime.
+DESCRIPTION
   type = map(object({
     id = string
   }))
@@ -42,6 +48,11 @@ variable "environments" {
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", env.id))
     ])
     error_message = "Each environment id must be a valid GUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+  }
+
+  validation {
+    condition     = length(var.environments) == length(distinct([for _, env in var.environments : lower(env.id)]))
+    error_message = "Each environment must have a unique id. Duplicate environment GUIDs are not allowed."
   }
 }
 
@@ -198,6 +209,11 @@ DESCRIPTION
   }
 
   validation {
+    condition     = length(var.nsg_additional_rules) == length(distinct([for rule in var.nsg_additional_rules : rule.priority]))
+    error_message = "Each NSG rule priority must be unique within nsg_additional_rules."
+  }
+
+  validation {
     condition = alltrue([
       for rule in var.nsg_additional_rules : !contains(["AllowVNetInBound", "DenyAllInBound", "AllowVNetOutBound", "DenyAllOutBound"], rule.name)
     ])
@@ -227,6 +243,11 @@ variable "private_dns_zone_names" {
   type        = list(string)
   default     = []
   nullable    = false
+
+  validation {
+    condition     = alltrue([for name in var.private_dns_zone_names : length(trimspace(name)) > 0])
+    error_message = "Each private DNS zone name must be a non-empty string."
+  }
 }
 
 variable "tags" {

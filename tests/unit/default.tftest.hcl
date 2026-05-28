@@ -482,6 +482,97 @@ run "rejects_reserved_nsg_rule_name" {
 }
 
 # ---------------------------------------------------------------------------
+# Variable validation: NSG rule priority uniqueness
+# ---------------------------------------------------------------------------
+
+run "rejects_duplicate_nsg_rule_priorities" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+    nsg_additional_rules = [
+      {
+        name      = "allow-https"
+        priority  = 200
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+      {
+        name      = "allow-http" # different name, same priority — invalid
+        priority  = 200
+        direction = "Outbound"
+        access    = "Allow"
+        protocol  = "Tcp"
+      },
+    ]
+  }
+
+  expect_failures = [
+    var.nsg_additional_rules,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Variable validation: duplicate environment IDs
+# ---------------------------------------------------------------------------
+
+run "rejects_duplicate_environment_ids" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+      env2 = { id = "00000000-0000-0000-0000-000000000001" } # same GUID as env1
+    }
+    primary_vnet_config  = { location = "westeurope" }
+    failover_vnet_config = { location = "northeurope" }
+  }
+
+  expect_failures = [
+    var.environments,
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# Variable validation: empty string in private_dns_zone_names
+# ---------------------------------------------------------------------------
+
+run "rejects_empty_dns_zone_name" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "europe"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "westeurope"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config      = { location = "westeurope" }
+    failover_vnet_config     = { location = "northeurope" }
+    create_private_dns_zones = true
+    private_dns_zone_names   = ["privatelink.blob.core.windows.net", ""] # empty string
+  }
+
+  expect_failures = [
+    var.private_dns_zone_names,
+  ]
+}
+
+# ---------------------------------------------------------------------------
 # Private DNS zones with create_network_infrastructure = true
 # ---------------------------------------------------------------------------
 

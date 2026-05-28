@@ -16,6 +16,22 @@
 #   TF_VAR_environments — JSON map, e.g.:
 #     '{"prod": {"id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}}'
 
+# Provider configuration for integration tests.
+# Credentials are sourced from environment variables (see prerequisites above).
+# use_oidc = true enables OIDC token exchange; azurerm also requires features {}.
+provider "azapi" {
+  use_oidc = true
+}
+
+provider "azurerm" {
+  features {}
+  use_oidc = true
+}
+
+provider "powerplatform" {
+  use_oidc = true
+}
+
 run "creates_enterprise_policy_with_managed_network" {
   command = apply
 

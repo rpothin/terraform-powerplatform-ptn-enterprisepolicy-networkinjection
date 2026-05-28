@@ -30,9 +30,19 @@ terraform test -test-directory=tests/unit
 Integration tests create real resources and require OIDC authentication:
 
 ```bash
+# Azure providers (azurerm + azapi)
 export ARM_USE_OIDC=true
+export ARM_TENANT_ID=<your-tenant-id>
+export ARM_CLIENT_ID=<your-client-id>
+export ARM_SUBSCRIPTION_ID=<your-subscription-id>
+
+# Power Platform provider
+export POWER_PLATFORM_USE_OIDC=true
 export POWER_PLATFORM_TENANT_ID=<your-tenant-id>
 export POWER_PLATFORM_CLIENT_ID=<your-client-id>
+
+# Required module variable (JSON map of managed PP environments to link)
+export TF_VAR_environments='{"prod": {"id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}}'
 
 terraform init -backend=false
 terraform test -test-directory=tests/integration

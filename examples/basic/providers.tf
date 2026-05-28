@@ -32,6 +32,6 @@ provider "azurerm" {
 
 provider "powerplatform" {
   # Configuration via environment variables: POWER_PLATFORM_TENANT_ID, POWER_PLATFORM_CLIENT_ID
-  # For OIDC: ARM_USE_OIDC=true
+  # For OIDC: POWER_PLATFORM_USE_OIDC=true
   use_oidc = true
 }

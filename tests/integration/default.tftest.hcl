@@ -1,7 +1,8 @@
 # Integration tests — uses real provider, requires OIDC credentials.
 #
 # Prerequisites:
-#   ARM_USE_OIDC=true                              (signals OIDC mode; reused from AzureRM convention by the Power Platform provider)
+#   ARM_USE_OIDC=true                              (OIDC mode for azurerm + azapi providers)
+#   POWER_PLATFORM_USE_OIDC=true                   (OIDC mode for the Power Platform provider)
 #   POWER_PLATFORM_TENANT_ID=<your-tenant-id>
 #   POWER_PLATFORM_CLIENT_ID=<your-client-id>
 #   ARM_TENANT_ID=<your-tenant-id>

@@ -209,7 +209,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "failover" {
 resource "azapi_resource" "enterprise_policy" {
   # Required arguments (alphabetical)
   body      = local.enterprise_policy_body
-  location  = var.resource_group_location
+  location  = local.enterprise_policy_arm_location
   name      = var.enterprise_policy_name
   parent_id = azurerm_resource_group.this.id
   type      = "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"

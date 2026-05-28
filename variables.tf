@@ -8,7 +8,7 @@ variable "enterprise_policy_location" {
   nullable    = false
 
   validation {
-    condition     = contains(["unitedstates", "europe", "asia", "australia", "japan", "india", "canada", "southamerica", "unitedkingdom", "france", "germany", "switzerland", "norway", "korea", "southafrica", "uae", "singapore"], var.enterprise_policy_location)
+    condition     = contains(["unitedstates", "europe", "asia", "australia", "japan", "india", "canada", "southamerica", "unitedkingdom", "france", "germany", "switzerland", "norway", "korea", "southafrica", "uae", "singapore", "sweden", "italy", "poland"], var.enterprise_policy_location)
     error_message = "enterprise_policy_location must be a valid Power Platform region (e.g. 'europe', 'unitedstates')."
   }
 }

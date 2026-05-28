@@ -29,6 +29,48 @@ run "accepts_valid_pp_location" {
   }
 }
 
+run "maps_uk_arm_location_alias" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "unitedkingdom"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "uksouth"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "uksouth" }
+    failover_vnet_config = { location = "ukwest" }
+  }
+
+  assert {
+    condition     = local.enterprise_policy_arm_location == "uk"
+    error_message = "enterprise_policy_arm_location should map 'unitedkingdom' to 'uk' for the ARM API."
+  }
+}
+
+run "maps_southamerica_arm_location_alias" {
+  command = plan
+
+  variables {
+    enterprise_policy_name     = "test-policy"
+    enterprise_policy_location = "southamerica"
+    resource_group_name        = "rg-test"
+    resource_group_location    = "brazilsouth"
+    environments = {
+      env1 = { id = "00000000-0000-0000-0000-000000000001" }
+    }
+    primary_vnet_config  = { location = "brazilsouth" }
+    failover_vnet_config = { location = "brazilsoutheast" }
+  }
+
+  assert {
+    condition     = local.enterprise_policy_arm_location == "brazil"
+    error_message = "enterprise_policy_arm_location should map 'southamerica' to 'brazil' for the ARM API."
+  }
+}
+
 run "rejects_invalid_pp_location" {
   command = plan
 

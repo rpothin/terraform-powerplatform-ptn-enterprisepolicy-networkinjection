@@ -1,4 +1,15 @@
 locals {
+  # Map PP region names to ARM location aliases for Microsoft.PowerPlatform/enterprisePolicies.
+  # Most PP regions map 1:1, but two differ: unitedkingdom→uk, southamerica→brazil.
+  enterprise_policy_arm_location = lookup(
+    {
+      unitedkingdom = "uk"
+      southamerica  = "brazil"
+    },
+    var.enterprise_policy_location,
+    var.enterprise_policy_location
+  )
+
   # ARM body for the enterprise policy resource
   enterprise_policy_body = {
     kind = "NetworkInjection"

@@ -1,41 +1,89 @@
 # Integration tests — uses real provider, requires OIDC credentials.
 #
 # Prerequisites:
-#   ARM_USE_OIDC=true                              (signals OIDC mode; reused from AzureRM convention by the Power Platform provider)
+#   ARM_USE_OIDC=true                              (OIDC mode for azurerm + azapi providers)
+#   POWER_PLATFORM_USE_OIDC=true                   (OIDC mode for the Power Platform provider)
 #   POWER_PLATFORM_TENANT_ID=<your-tenant-id>
 #   POWER_PLATFORM_CLIENT_ID=<your-client-id>
+#   ARM_TENANT_ID=<your-tenant-id>
+#   ARM_CLIENT_ID=<your-client-id>
+#   ARM_SUBSCRIPTION_ID=<your-subscription-id>
 #
-# These tests create real resources against a Power Platform tenant.
+# These tests create real resources against a Power Platform tenant and an Azure subscription.
 # Resources are automatically destroyed after test completion.
+#
+# Required environment variables for test variable injection:
+#   TF_VAR_environments               — JSON map, e.g.:
+#     '{"prod": {"id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}}'
+#   TF_VAR_enterprise_policy_location — PP region matching all linked environments (e.g. 'unitedstates')
+#   TF_VAR_resource_group_location    — Azure region for the resource group (e.g. 'eastus2')
+#   TF_VAR_primary_vnet_config        — JSON object, e.g.: '{"location":"eastus2"}'
+#   TF_VAR_failover_vnet_config       — JSON object, e.g.: '{"location":"westus2"}'
 
-run "creates_resource_with_required_variables" {
-  command = apply
-
-  variables {
-    name     = "tftest-integration"
-    location = "unitedstates"
-  }
-
-  assert {
-    condition     = output.name == "tftest-integration"
-    error_message = "Resource name should match the input variable."
-  }
+# Provider configuration for integration tests.
+# Credentials are sourced from environment variables (see prerequisites above).
+# use_oidc = true enables OIDC token exchange; azurerm also requires features {}.
+provider "azapi" {
+  use_oidc = true
 }
 
-run "creates_resource_with_all_variables" {
+provider "azurerm" {
+  features {}
+  use_oidc = true
+}
+
+provider "powerplatform" {
+  use_oidc = true
+}
+
+run "creates_enterprise_policy_with_managed_network" {
   command = apply
 
   variables {
-    name     = "tftest-integration-complete"
-    location = "unitedstates"
+    enterprise_policy_name = "tftest-integration-policy"
+    resource_group_name    = "rg-tftest-integration"
+
     tags = {
       environment = "integration-test"
       managed_by  = "terraform-test"
     }
+    # Location-dependent variables sourced via TF_VAR_* environment variables:
+    #   enterprise_policy_location, resource_group_location,
+    #   primary_vnet_config, failover_vnet_config, environments
   }
 
   assert {
-    condition     = output.name == "tftest-integration-complete"
-    error_message = "Resource name should match the input variable."
+    condition     = output.enterprise_policy_id != ""
+    error_message = "enterprise_policy_id output must not be empty."
+  }
+
+  assert {
+    condition     = output.enterprise_policy_system_id != ""
+    error_message = "enterprise_policy_system_id output must not be empty."
+  }
+
+  assert {
+    condition     = output.resource_group_name == "rg-tftest-integration"
+    error_message = "resource_group_name output must match the input variable."
+  }
+
+  assert {
+    condition     = output.resource_group_location == var.resource_group_location
+    error_message = "resource_group_location output must match the input variable."
+  }
+
+  assert {
+    condition     = output.primary_vnet_id != ""
+    error_message = "primary_vnet_id output must not be empty."
+  }
+
+  assert {
+    condition     = output.failover_vnet_id != ""
+    error_message = "failover_vnet_id output must not be empty."
+  }
+
+  assert {
+    condition     = length(output.enterprise_policy_links) > 0
+    error_message = "enterprise_policy_links output must contain at least one link."
   }
 }

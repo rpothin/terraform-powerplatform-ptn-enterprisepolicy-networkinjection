@@ -110,7 +110,8 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    if: vars.ENABLE_INTEGRATION_TESTS == 'true'
+    # Skip on forked PRs (secrets are unavailable in that context)
+    if: vars.ENABLE_INTEGRATION_TESTS == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
       id-token: write
@@ -123,9 +124,48 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Preflight - verify required secrets and variables
+        run: |
+          missing=()
+          [ -z "$POWER_PLATFORM_TENANT_ID" ]          && missing+=("POWER_PLATFORM_TENANT_ID (secret)")
+          [ -z "$POWER_PLATFORM_CLIENT_ID" ]           && missing+=("POWER_PLATFORM_CLIENT_ID (secret)")
+          [ -z "$ARM_TENANT_ID" ]                      && missing+=("ARM_TENANT_ID (secret)")
+          [ -z "$ARM_CLIENT_ID" ]                      && missing+=("ARM_CLIENT_ID (secret)")
+          [ -z "$ARM_SUBSCRIPTION_ID" ]                && missing+=("ARM_SUBSCRIPTION_ID (secret)")
+          [ -z "$TF_VAR_environments" ]                && missing+=("TF_VAR_ENVIRONMENTS (secret)")
+          [ -z "$TF_VAR_enterprise_policy_location" ]  && missing+=("TF_VAR_ENTERPRISE_POLICY_LOCATION (variable)")
+          [ -z "$TF_VAR_resource_group_location" ]     && missing+=("TF_VAR_RESOURCE_GROUP_LOCATION (variable)")
+          [ -z "$TF_VAR_primary_vnet_config" ]         && missing+=("TF_VAR_PRIMARY_VNET_CONFIG (variable)")
+          [ -z "$TF_VAR_failover_vnet_config" ]        && missing+=("TF_VAR_FAILOVER_VNET_CONFIG (variable)")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required configuration: ${missing[*]}"
+            echo "See tests/README.md for the full list of required secrets and repository variables."
+            exit 1
+          fi
+        env:
+          POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
+          POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          TF_VAR_environments: ${{ secrets.TF_VAR_ENVIRONMENTS }}
+          TF_VAR_enterprise_policy_location: ${{ vars.TF_VAR_ENTERPRISE_POLICY_LOCATION }}
+          TF_VAR_resource_group_location: ${{ vars.TF_VAR_RESOURCE_GROUP_LOCATION }}
+          TF_VAR_primary_vnet_config: ${{ vars.TF_VAR_PRIMARY_VNET_CONFIG }}
+          TF_VAR_failover_vnet_config: ${{ vars.TF_VAR_FAILOVER_VNET_CONFIG }}
+
       - name: Run Integration Tests
         run: make test-integration
         env:
+          ARM_USE_OIDC: "true"
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           POWER_PLATFORM_USE_OIDC: "true"
           POWER_PLATFORM_TENANT_ID: ${{ secrets.POWER_PLATFORM_TENANT_ID }}
           POWER_PLATFORM_CLIENT_ID: ${{ secrets.POWER_PLATFORM_CLIENT_ID }}
+          TF_VAR_environments: ${{ secrets.TF_VAR_ENVIRONMENTS }}
+          TF_VAR_enterprise_policy_location: ${{ vars.TF_VAR_ENTERPRISE_POLICY_LOCATION }}
+          TF_VAR_resource_group_location: ${{ vars.TF_VAR_RESOURCE_GROUP_LOCATION }}
+          TF_VAR_primary_vnet_config: ${{ vars.TF_VAR_PRIMARY_VNET_CONFIG }}
+          TF_VAR_failover_vnet_config: ${{ vars.TF_VAR_FAILOVER_VNET_CONFIG }}

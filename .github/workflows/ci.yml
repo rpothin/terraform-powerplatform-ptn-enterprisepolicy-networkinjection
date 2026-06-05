@@ -110,8 +110,8 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    # Skip on forked PRs (secrets are unavailable in that context)
-    if: vars.ENABLE_INTEGRATION_TESTS == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    # Skip on forked and Dependabot PRs (secrets are unavailable in those contexts)
+    if: vars.ENABLE_INTEGRATION_TESTS == 'true' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'))
     permissions:
       contents: read
       id-token: write
